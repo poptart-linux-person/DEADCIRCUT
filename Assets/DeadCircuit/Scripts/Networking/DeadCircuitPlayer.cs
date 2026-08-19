@@ -6,20 +6,22 @@ namespace DeadCircuit.Networking
 {
     public class DeadCircuitPlayer : NetworkBehaviour
     {
-        public readonly SyncVar<int> Health = new(140);
+        public readonly SyncVar<int> Health = new(120);
         public readonly SyncVar<bool> Downed = new(false);
         public readonly SyncVar<int> Revives = new(1);
 
         [SerializeField] CharacterController characterController;
         [SerializeField] float reviveDuration = 3f;
-        [SerializeField, Range(0f, 0.75f)] float damageReduction = 0.20f;
-        [SerializeField] float impactPushScale = 0.18f;
+        [SerializeField, Range(0f, 0.75f)] float damageReduction = 0.22f;
+        [SerializeField] float combatPowerScale = 0.85f;
         float reviveTimer;
+
+        public float CombatPowerScale => combatPowerScale;
 
         public override void OnStartServer()
         {
             base.OnStartServer();
-            Health.Value = 140;
+            Health.Value = 120;
             Downed.Value = false;
             Revives.Value = 1;
         }
@@ -35,18 +37,6 @@ namespace DeadCircuit.Networking
         }
 
         [ServerRpc]
-        public void DealImpactServerRpc(int amount, Vector3 direction, float knockback)
-        {
-            if (Downed.Value) return;
-            int incoming = Mathf.Abs(amount);
-            int reduced = Mathf.Max(1, Mathf.RoundToInt(incoming * (1f - damageReduction)));
-            Health.Value = Mathf.Max(0, Health.Value - reduced);
-            if (characterController != null && direction.sqrMagnitude > 0.001f)
-                characterController.Move(direction.normalized * Mathf.Max(0f, knockback) * impactPushScale);
-            if (Health.Value == 0) Downed.Value = true;
-        }
-
-        [ServerRpc]
         public void ReviveServerRpc(DeadCircuitPlayer target)
         {
             if (target == null || !target.Downed.Value || target.Revives.Value <= 0) return;
@@ -56,7 +46,7 @@ namespace DeadCircuit.Networking
         void ReviveInternal()
         {
             Revives.Value--;
-            Health.Value = 45;
+            Health.Value = 42;
             Downed.Value = false;
             reviveTimer = 0f;
         }
