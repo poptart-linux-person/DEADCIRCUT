@@ -13,7 +13,7 @@ namespace DeadCircuit.Networking
         [SerializeField] CharacterController characterController;
         [SerializeField] float reviveDuration = 3f;
         [SerializeField, Range(0f, 0.75f)] float damageReduction = 0.22f;
-        [SerializeField] float combatPowerScale = 0.85f;
+        [SerializeField, Range(0.5f, 1.25f)] float combatPowerScale = 0.90f;
         float reviveTimer;
 
         public float CombatPowerScale => combatPowerScale;
