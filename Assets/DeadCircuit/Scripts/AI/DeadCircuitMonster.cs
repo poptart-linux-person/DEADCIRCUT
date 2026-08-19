@@ -6,7 +6,7 @@ namespace DeadCircuit.AI
 {
     public class DeadCircuitMonster : NetworkBehaviour
     {
-        public enum BrainState { Dormant, Patrol, Investigate, Chase, Search, Stunned }
+        public enum BrainState { Dormant, Patrol, Investigate, Chase, Search, Stunned, Executing }
 
         [Header("Sight")]
         [SerializeField] float visionRadius = 22f;
@@ -30,6 +30,10 @@ namespace DeadCircuit.AI
         [SerializeField] float attackRange = 1.6f;
         [SerializeField] float attackCooldown = 0.85f;
         [SerializeField] int damage = 35;
+        [SerializeField] int executionHealthThreshold = 18;
+        [SerializeField] float executionDuration = 0.75f;
+        [SerializeField] float executionThrowUp = 3.5f;
+        [SerializeField] float executionThrowForward = 8.5f;
 
         BrainState state = BrainState.Dormant;
         Transform target;
@@ -39,7 +43,9 @@ namespace DeadCircuit.AI
         float nextThink;
         float nextAttack;
         float targetVisibleUntil;
+        float executionTimer;
         bool hasHeardSomething;
+        DeadCircuitPlayer executionTarget;
 
         public override void OnStartServer()
         {
@@ -59,6 +65,12 @@ namespace DeadCircuit.AI
         void Update()
         {
             if (!IsServerStarted) return;
+
+            if (state == BrainState.Executing)
+            {
+                UpdateExecution();
+                return;
+            }
 
             if (Time.time >= nextThink)
             {
@@ -130,9 +142,17 @@ namespace DeadCircuit.AI
                         speed = chaseSpeed;
                         if (Vector3.Distance(transform.position, destination) <= attackRange && Time.time >= nextAttack)
                         {
-                            nextAttack = Time.time + attackCooldown;
                             var player = target.GetComponent<DeadCircuitPlayer>();
-                            if (player != null) player.DealDamageServerRpc(damage);
+                            if (player != null)
+                            {
+                                if (player.Health.Value <= executionHealthThreshold)
+                                {
+                                    BeginExecution(player);
+                                    return;
+                                }
+                                nextAttack = Time.time + attackCooldown;
+                                player.DealDamageServerRpc(damage);
+                            }
                         }
                     }
                     break;
@@ -155,6 +175,37 @@ namespace DeadCircuit.AI
                 Quaternion desired = Quaternion.LookRotation(move.normalized, Vector3.up);
                 transform.rotation = Quaternion.Slerp(transform.rotation, desired, turnSpeed * Time.deltaTime);
             }
+        }
+
+        [Server]
+        void BeginExecution(DeadCircuitPlayer player)
+        {
+            if (player == null || player.Downed.Value) return;
+            executionTarget = player;
+            state = BrainState.Executing;
+            executionTimer = executionDuration;
+            target = null;
+        }
+
+        [Server]
+        void UpdateExecution()
+        {
+            if (executionTarget == null)
+            {
+                state = BrainState.Chase;
+                return;
+            }
+
+            transform.LookAt(executionTarget.transform.position + Vector3.up * 0.9f);
+            executionTimer -= Time.deltaTime;
+            if (executionTimer > 0f) return;
+
+            Vector3 away = (executionTarget.transform.position - transform.position).normalized;
+            Vector3 impulse = away * executionThrowForward + Vector3.up * executionThrowUp;
+            executionTarget.ExecuteAndThrowServer(impulse, executionTarget.transform.position + Vector3.up * 0.8f);
+            executionTarget = null;
+            state = BrainState.Chase;
+            nextAttack = Time.time + 1.25f;
         }
 
         [Server]
