@@ -26,12 +26,21 @@ namespace DeadCircuit.Combat
             Collider[] hits = Physics.OverlapSphere(center, radius, ~0, QueryTriggerInteraction.Ignore);
             foreach (Collider hit in hits)
             {
+                var monster = hit.GetComponentInParent<DeadCircuit.AI.DeadCircuitMonster>();
+                if (monster != null && monster.gameObject != gameObject)
+                {
+                    monster.StunAndKnockback(transform.position, damage, 0.75f, knockback);
+                    if (knockback >= 2.2f)
+                        monster.ApplyPhysicsKnockback(direction, knockback);
+                    break;
+                }
+
                 var player = hit.GetComponentInParent<DeadCircuit.Networking.DeadCircuitPlayer>();
-                if (player == null || player.gameObject == gameObject) continue;
-                player.DealDamageServerRpc(damage);
-                Rigidbody body = player.GetComponent<Rigidbody>();
-                if (body != null) body.AddForce((direction + Vector3.up * 0.2f) * knockback, ForceMode.Impulse);
-                break;
+                if (player != null && player.gameObject != gameObject)
+                {
+                    player.DealImpactServerRpc(damage, direction, knockback);
+                    break;
+                }
             }
         }
 
