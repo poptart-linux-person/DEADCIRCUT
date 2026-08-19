@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace DeadCircuit.AI
 {
-    public enum NoiseType { Footstep, Voice, Impact, Weapon }
+    public enum NoiseType { Footstep, Voice, Impact, Weapon, Generator }
 
     public readonly struct NoiseEvent
     {

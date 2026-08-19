@@ -1,5 +1,7 @@
 using FishNet.Object;
+using FishNet.Object.Synchronizing;
 using UnityEngine;
+using DeadCircuit.AI;
 
 namespace DeadCircuit.Gameplay
 {
@@ -20,6 +22,7 @@ namespace DeadCircuit.Gameplay
 
         float repairTimer;
         float nextFailureCheck;
+        float nextNoisePulse;
 
         public GeneratorType Type => type;
         public float CurrentNoise => Running.Value ? noiseLevel : 0f;
@@ -42,8 +45,14 @@ namespace DeadCircuit.Gameplay
         [ServerRpc]
         public void RepairServerRpc()
         {
+            RepairInternal(0.25f);
+        }
+
+        [Server]
+        public void RepairInternal(float stepSeconds = 0.25f)
+        {
             if (Health.Value >= 1f) return;
-            repairTimer += 0.25f;
+            repairTimer += stepSeconds;
             if (repairTimer >= repairTime)
             {
                 repairTimer = 0f;
@@ -71,6 +80,12 @@ namespace DeadCircuit.Gameplay
                 }
             }
             RecalculateOutput();
+
+            if (Running.Value && noiseLevel > 0f && Time.time >= nextNoisePulse)
+            {
+                nextNoisePulse = Time.time + Mathf.Lerp(2.5f, 0.8f, noiseLevel);
+                DeadCircuitNoiseDirector.Emit(new NoiseEvent(transform.position, noiseLevel, NoiseType.Generator));
+            }
         }
 
         [Server]

@@ -96,12 +96,19 @@ namespace DeadCircuit.Networking
         [ServerRpc]
         public void DodgeGrabServerRpc()
         {
-            if (!IsOwner || Downed.Value || Ragdolled.Value) return;
+            if (Downed.Value || Ragdolled.Value) return;
             foreach (DynamicGrabQTE qte in FindObjectsByType<DynamicGrabQTE>(FindObjectsSortMode.None))
             {
                 if (qte != null && qte.IsWarning)
                     qte.ResolveDodge(this);
             }
+        }
+
+        [Server]
+        public void ReleaseFromQTEServer()
+        {
+            if (Downed.Value) return;
+            Ragdolled.Value = false;
         }
 
         [ServerRpc]

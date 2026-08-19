@@ -16,7 +16,7 @@ namespace DeadCircuit.Combat
 
         void Awake() => body = GetComponent<Rigidbody>();
 
-        void FixedUpdate() { if (body != null) lastVelocity = body.linearVelocity; }
+        void FixedUpdate() { if (body != null) lastVelocity = body.velocity; }
 
         void OnCollisionEnter(Collision collision)
         {
@@ -56,7 +56,7 @@ namespace DeadCircuit.Combat
             if (joint != null) Destroy(joint);
             joint = null;
             body.isKinematic = false;
-            body.linearVelocity = velocity;
+            body.velocity = velocity;
         }
     }
 }

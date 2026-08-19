@@ -1,4 +1,5 @@
 using FishNet.Object;
+using FishNet.Object.Synchronizing;
 using UnityEngine;
 using DeadCircuit.Networking;
 
@@ -64,7 +65,13 @@ namespace DeadCircuit.Combat
         void Complete(bool rescued)
         {
             Active.Value = false;
-            if (victim != null && rescued) victim.ExecuteAndThrowServer(Vector3.zero, victim.transform.position);
+            if (victim != null)
+            {
+                if (rescued)
+                    victim.ReleaseFromQTEServer();
+                else
+                    victim.EnterRagdollServer((victim.transform.position - monster.transform.position).normalized, 6f, 3f);
+            }
             victim = null;
             monster = null;
         }

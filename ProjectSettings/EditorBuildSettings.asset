@@ -5,16 +5,13 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - serializedVersion: 2
-    enabled: 1
+  - enabled: 1
     path: Assets/DeadCircuit/Scenes/MainMenu.unity
-    guid: 00000000000000000000000000000000
-  - serializedVersion: 2
-    enabled: 1
+    guid: f1a2b3c4d5e6478990abcdef12345678
+  - enabled: 1
     path: Assets/DeadCircuit/Scenes/Story_01.unity
-    guid: 00000000000000000000000000000000
-  - serializedVersion: 2
-    enabled: 1
+    guid: f2a2b3c4d5e6478990abcdef12345678
+  - enabled: 1
     path: Assets/DeadCircuit/Scenes/Survival_01.unity
-    guid: 00000000000000000000000000000000
+    guid: f3a2b3c4d5e6478990abcdef12345678
   m_configObjects: {}

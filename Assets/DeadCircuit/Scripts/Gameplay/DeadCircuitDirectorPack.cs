@@ -16,13 +16,19 @@ namespace DeadCircuit.Gameplay
 
         [SerializeField] float threatDecay = 1.5f;
         [SerializeField] float eventCooldown = 30f;
+        [SerializeField] PowerGrid powerGrid;
 
         [ServerCallback]
         void Update()
         {
             Threat.Value = Mathf.Max(0f, Threat.Value - threatDecay * Time.deltaTime);
             EventTimer.Value = Mathf.Max(0f, EventTimer.Value - Time.deltaTime);
-            if (PowerOut.Value) Blackout.Value = true;
+            if (powerGrid == null) powerGrid = Object.FindObjectOfType<PowerGrid>();
+            if (powerGrid != null)
+            {
+                PowerOut.Value = !powerGrid.Powered.Value;
+                Blackout.Value = PowerOut.Value;
+            }
             if (EventTimer.Value <= 0f && Threat.Value > 60f) StartDynamicHunt();
         }
 
@@ -38,6 +44,7 @@ namespace DeadCircuit.Gameplay
         {
             PowerOut.Value = true;
             Blackout.Value = true;
+            if (powerGrid != null) powerGrid.ForceOutage();
             EventTimer.Value = eventCooldown;
         }
 
@@ -46,6 +53,7 @@ namespace DeadCircuit.Gameplay
         {
             PowerOut.Value = false;
             Blackout.Value = false;
+            if (powerGrid != null) powerGrid.RestorePower(0.5f);
         }
 
         [Server]

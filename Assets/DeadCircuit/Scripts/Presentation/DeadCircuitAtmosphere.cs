@@ -17,6 +17,7 @@ namespace DeadCircuit.Presentation
 
         void Update()
         {
+            if (adaptiveLights == null || adaptiveLights.Length == 0) return;
             float t = Time.time * flickerSpeed + seed;
             for (int i = 0; i < adaptiveLights.Length; i++)
             {

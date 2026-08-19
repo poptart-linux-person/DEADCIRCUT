@@ -1,0 +1,19 @@
+{
+    "name": "DeadCircuit.Editor",
+    "rootNamespace": "DeadCircuit.EditorTools",
+    "references": [
+        "DeadCircuit.Runtime",
+        "FishNet.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

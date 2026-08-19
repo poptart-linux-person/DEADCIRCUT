@@ -48,5 +48,12 @@ namespace DeadCircuit.Gameplay
         }
 
         public bool CanUsePoweredEquipment() => Powered.Value && Stability.Value > outageThreshold && AvailablePower.Value > 0f;
+
+        [Server]
+        public void ForceOutage()
+        {
+            Powered.Value = false;
+            Stability.Value = 0f;
+        }
     }
 }

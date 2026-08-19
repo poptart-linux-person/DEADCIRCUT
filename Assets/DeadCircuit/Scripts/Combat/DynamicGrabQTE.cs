@@ -61,7 +61,8 @@ namespace DeadCircuit.Combat
         public void ResolveDodge(DeadCircuitPlayer player)
         {
             if (player == null || player != targetPlayer) return;
-            if (State.Value != GrabQTEState.Grabbed || WarningRemaining.Value <= 0f) return;
+            if (State.Value != GrabQTEState.Warning && State.Value != GrabQTEState.Grabbed) return;
+            if (State.Value == GrabQTEState.Grabbed && WarningRemaining.Value <= 0f) return;
             State.Value = GrabQTEState.Dodged;
             WarningRemaining.Value = 0f;
             Invoke(nameof(ResetState), 0.25f);

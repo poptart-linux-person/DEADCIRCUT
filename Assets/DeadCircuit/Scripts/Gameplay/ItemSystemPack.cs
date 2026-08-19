@@ -33,7 +33,7 @@ namespace DeadCircuit.Gameplay
             if (body != null)
             {
                 body.isKinematic = false;
-                body.linearVelocity = velocity;
+                body.velocity = velocity;
             }
         }
 

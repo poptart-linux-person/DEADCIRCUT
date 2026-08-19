@@ -36,7 +36,7 @@ namespace DeadCircuit.Physics
             liftTimer = 0f;
             lifting = true;
             body.isKinematic = false;
-            body.linearVelocity = Vector3.zero;
+            body.velocity = Vector3.zero;
             body.angularVelocity = Vector3.zero;
         }
 
@@ -46,7 +46,7 @@ namespace DeadCircuit.Physics
             liftTimer += Time.deltaTime;
             if (liftTimer >= requiredLiftTime)
             {
-                heldBody.linearVelocity = Vector3.zero;
+                heldBody.velocity = Vector3.zero;
                 heldBody.angularVelocity = Vector3.zero;
             }
         }

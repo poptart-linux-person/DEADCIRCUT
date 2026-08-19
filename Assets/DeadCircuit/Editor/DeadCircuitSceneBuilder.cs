@@ -4,6 +4,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using FishNet.Object;
 using DeadCircuit.Gameplay;
 using DeadCircuit.Networking;
 using DeadCircuit.UI;
@@ -46,7 +47,13 @@ namespace DeadCircuit.EditorTools
             var state = new GameObject("GameState");
             state.AddComponent<DeadCircuitGameState>();
             var director = new GameObject("MatchDirector");
+            director.AddComponent<NetworkObject>();
             director.AddComponent<MatchDirector>();
+
+            var gridRoot = new GameObject("PowerGrid");
+            gridRoot.AddComponent<NetworkObject>();
+            gridRoot.AddComponent<PowerGrid>();
+            gridRoot.AddComponent<PoweredEquipment>();
 
             CreateRoom("StartRoom", Vector3.zero, new Vector3(22, 1, 22));
             CreateRoom("BackRoom", new Vector3(0, 0, 26), new Vector3(18, 1, 18));
@@ -65,6 +72,13 @@ namespace DeadCircuit.EditorTools
             point.intensity = survival ? 2.5f : 3f;
             light.transform.position = new Vector3(0, 4, 4);
 
+            var atmosphere = new GameObject("Atmosphere");
+            atmosphere.AddComponent<DeadCircuit.Presentation.DeadCircuitAtmosphere>();
+
+            CreateGenerator(new Vector3(8, 0.5f, 8), GeneratorType.Diesel);
+            CreateGenerator(new Vector3(-8, 0.5f, 20), survival ? GeneratorType.Gas : GeneratorType.Emergency);
+            CreateMonster(new Vector3(0, 1, 30));
+
             if (survival)
             {
                 var note = new GameObject("SurvivalMarker");
@@ -79,6 +93,33 @@ namespace DeadCircuit.EditorTools
             }
 
             Save(scene, name);
+        }
+
+        static void CreateGenerator(Vector3 position, GeneratorType type)
+        {
+            var go = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            go.name = $"Generator_{type}";
+            go.transform.position = position;
+            go.transform.localScale = new Vector3(1.2f, 0.8f, 1.2f);
+            go.AddComponent<NetworkObject>();
+            go.AddComponent<GeneratorSystem>();
+            var serialized = new SerializedObject(go.GetComponent<GeneratorSystem>());
+            serialized.FindProperty("type").enumValueIndex = (int)type;
+            serialized.ApplyModifiedPropertiesWithoutUndo();
+            go.AddComponent<PowerMinigame>();
+        }
+
+        static void CreateMonster(Vector3 position)
+        {
+            var go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            go.name = "DeadCircuitMonster";
+            go.transform.position = position;
+            go.transform.localScale = new Vector3(1.4f, 2.2f, 1.4f);
+            go.AddComponent<NetworkObject>();
+            go.AddComponent<DeadCircuit.AI.DeadCircuitMonster>();
+            go.AddComponent<DeadCircuit.AI.MonsterCombatAbilities>();
+            go.AddComponent<DeadCircuit.Combat.DynamicGrabQTE>();
+            go.AddComponent<DeadCircuit.Combat.CoopQTE>();
         }
 
         static void CreateRoom(string name, Vector3 position, Vector3 scale)
