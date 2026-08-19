@@ -40,6 +40,24 @@ namespace DeadCircuit.Networking
             if (Health.Value == 0) DieServer();
         }
 
+        [ServerRpc]
+        public void DealImpactServerRpc(int amount, Vector3 direction, float knockback)
+        {
+            if (Downed.Value || Ragdolled.Value) return;
+            int incoming = Mathf.Abs(amount);
+            int reduced = Mathf.Max(1, Mathf.RoundToInt(incoming * (1f - damageReduction)));
+            Health.Value = Mathf.Max(0, Health.Value - reduced);
+
+            Rigidbody body = GetComponent<Rigidbody>();
+            if (body != null)
+            {
+                Vector3 impulse = direction.sqrMagnitude > 0.001f ? direction.normalized : transform.forward;
+                body.AddForce((impulse + Vector3.up * 0.2f) * Mathf.Clamp(knockback, 0f, 12f), ForceMode.Impulse);
+            }
+
+            if (Health.Value == 0) DieServer();
+        }
+
         [Server]
         void DieServer()
         {
