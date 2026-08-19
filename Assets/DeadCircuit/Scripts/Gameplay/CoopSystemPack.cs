@@ -30,7 +30,8 @@ namespace DeadCircuit.Gameplay
         [Server]
         public void CreateDistraction(Vector3 position, float loudness)
         {
-            DeadCircuit.AI.DeadCircuitNoiseDirector.Emit(position, loudness, DeadCircuit.AI.NoiseType.Voice);
+            DeadCircuit.AI.DeadCircuitNoiseDirector.Emit(
+                new DeadCircuit.AI.NoiseEvent(position, loudness, DeadCircuit.AI.NoiseType.Voice));
         }
     }
 }
