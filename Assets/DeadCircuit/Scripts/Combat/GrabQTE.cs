@@ -1,4 +1,5 @@
 using FishNet.Object;
+using FishNet.Object.Synchronizing;
 using UnityEngine;
 using DeadCircuit.Networking;
 
@@ -10,16 +11,24 @@ namespace DeadCircuit.Combat
         public readonly SyncVar<GrabState> State = new(GrabState.None);
         public readonly SyncVar<float> WindowRemaining = new(0f);
 
-        [SerializeField] float escapeDistance = 4.0f;
-        [SerializeField] float releaseWindow = 1.0f;
-        [SerializeField] float throwDamage = 24f;
-        [SerializeField] float stunDuration = 1.6f;
-
+        [SerializeField] float baseEscapeDistance = 4f;
+        [SerializeField] float baseReleaseWindow = 1f;
         Transform holder;
-        float lastDistance;
 
         public bool CanBreakFree => State.Value == GrabState.Grabbed || State.Value == GrabState.ReleaseWindow;
         public bool CanRunAway => State.Value == GrabState.ReleaseWindow;
+
+        [Server]
+        public bool TryStart(DeadCircuitPlayer player, float intensity)
+        {
+            if (player == null || State.Value != GrabState.None) return false;
+            holder = GetComponentInParent<DeadCircuit.AI.DeadCircuitMonster>()?.transform;
+            if (holder == null) return false;
+            float clamped = Mathf.Clamp01(intensity);
+            State.Value = GrabState.Grabbed;
+            WindowRemaining.Value = Mathf.Lerp(baseReleaseWindow + 0.25f, baseReleaseWindow - 0.25f, clamped);
+            return true;
+        }
 
         [Server]
         public void BeginGrab(Transform monster)
@@ -27,70 +36,63 @@ namespace DeadCircuit.Combat
             if (monster == null || State.Value != GrabState.None) return;
             holder = monster;
             State.Value = GrabState.Grabbed;
-            WindowRemaining.Value = releaseWindow;
-            lastDistance = Vector3.Distance(transform.position, monster.position);
+            WindowRemaining.Value = baseReleaseWindow;
         }
 
         [ServerCallback]
         void Update()
         {
-            if (State.Value == GrabState.None || holder == null) return;
+            if (State.Value == GrabState.None) return;
+            if (holder == null) { EscapeServer(); return; }
 
-            float distance = Vector3.Distance(transform.position, holder.position);
-            if (State.Value == GrabState.Grabbed && distance > escapeDistance)
+            if (State.Value == GrabState.Grabbed || State.Value == GrabState.ReleaseWindow)
             {
-                EscapeServer();
-                return;
-            }
-
-            if (State.Value == GrabState.ReleaseWindow)
-            {
-                WindowRemaining.Value = Mathf.Max(0f, WindowRemaining.Value - Time.deltaTime);
-                if (distance > escapeDistance)
+                if (Vector3.Distance(transform.position, holder.position) > baseEscapeDistance)
                 {
                     EscapeServer();
                     return;
                 }
-                if (WindowRemaining.Value <= 0f)
-                {
-                    State.Value = GrabState.Thrown;
-                    WindowRemaining.Value = 0f;
-                }
             }
 
-            lastDistance = distance;
+            if (State.Value == GrabState.Grabbed)
+            {
+                WindowRemaining.Value = Mathf.Max(0f, WindowRemaining.Value - Time.deltaTime);
+                if (WindowRemaining.Value <= 0f) OpenReleaseWindow();
+            }
+            else if (State.Value == GrabState.ReleaseWindow)
+            {
+                WindowRemaining.Value = Mathf.Max(0f, WindowRemaining.Value - Time.deltaTime);
+                if (WindowRemaining.Value <= 0f) State.Value = GrabState.Thrown;
+            }
         }
 
         [Server]
         public void OpenReleaseWindow()
         {
-            if (State.Value != GrabState.Grabbed) return;
             State.Value = GrabState.ReleaseWindow;
-            WindowRemaining.Value = releaseWindow;
+            WindowRemaining.Value = baseReleaseWindow;
         }
 
         [ServerRpc]
         public void BreakFreeServerRpc()
         {
-            if (!CanBreakFree) return;
-            EscapeServer();
+            if (CanBreakFree) EscapeServer();
         }
 
         [ServerRpc]
-        public void RunAwayServerRpc()
+        public void RunAwayServerRpc(Vector3 playerPosition)
         {
-            if (!CanRunAway) return;
-            if (holder == null || Vector3.Distance(transform.position, holder.position) > escapeDistance)
-                EscapeServer();
+            if (!CanRunAway || holder == null) return;
+            if (Vector3.Distance(playerPosition, holder.position) > baseEscapeDistance) EscapeServer();
         }
 
         [ServerRpc]
         public void CounterAttackServerRpc(int damage)
         {
             if (!CanBreakFree || holder == null) return;
-            EscapeServer();
             var monster = holder.GetComponent<DeadCircuit.AI.DeadCircuitMonster>();
-            if (monster != null) monster.StunAndKnockback(transform.position, Mathf.Max(1, damage), stunDuration);
+            EscapeServer();
+            if (monster != null) monster.StunAndKnockback(transform.position, Mathf.Max(1, damage), 1.6f);
         }
 
         [Server]
