@@ -13,6 +13,7 @@ namespace DeadCircuit.Networking
         [SerializeField] CharacterController characterController;
         [SerializeField] float reviveDuration = 3f;
         [SerializeField, Range(0f, 0.75f)] float damageReduction = 0.20f;
+        [SerializeField] float impactPushScale = 0.18f;
         float reviveTimer;
 
         public override void OnStartServer()
@@ -30,6 +31,18 @@ namespace DeadCircuit.Networking
             int incoming = Mathf.Abs(amount);
             int reduced = Mathf.Max(1, Mathf.RoundToInt(incoming * (1f - damageReduction)));
             Health.Value = Mathf.Max(0, Health.Value - reduced);
+            if (Health.Value == 0) Downed.Value = true;
+        }
+
+        [ServerRpc]
+        public void DealImpactServerRpc(int amount, Vector3 direction, float knockback)
+        {
+            if (Downed.Value) return;
+            int incoming = Mathf.Abs(amount);
+            int reduced = Mathf.Max(1, Mathf.RoundToInt(incoming * (1f - damageReduction)));
+            Health.Value = Mathf.Max(0, Health.Value - reduced);
+            if (characterController != null && direction.sqrMagnitude > 0.001f)
+                characterController.Move(direction.normalized * Mathf.Max(0f, knockback) * impactPushScale);
             if (Health.Value == 0) Downed.Value = true;
         }
 
