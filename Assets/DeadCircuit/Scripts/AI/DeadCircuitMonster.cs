@@ -7,7 +7,7 @@ namespace DeadCircuit.AI
 {
     public class DeadCircuitMonster : NetworkBehaviour
     {
-        public enum BrainState { Dormant, Patrol, Investigate, Chase, Search, Stunned, Executing }
+        public enum BrainState { Dormant, Patrol, Investigate, Chase, Search, Stunned, Executing, Ragdolled }
 
         [Header("Sight")]
         [SerializeField] float visionRadius = 22f;
@@ -68,6 +68,7 @@ namespace DeadCircuit.AI
                 if (Time.time >= stunnedUntil) state = BrainState.Chase;
                 return;
             }
+            if (state == BrainState.Ragdolled) return;
             if (Time.time >= nextThink)
             {
                 nextThink = Time.time + 0.12f;
@@ -98,13 +99,10 @@ namespace DeadCircuit.AI
                 return;
             }
 
-            if (state == BrainState.Investigate)
+            if (state == BrainState.Investigate && Vector3.Distance(transform.position, investigatePoint) <= 0.8f)
             {
-                if (Vector3.Distance(transform.position, investigatePoint) <= 0.8f)
-                {
-                    state = BrainState.Search;
-                    searchTimer = searchDuration;
-                }
+                state = BrainState.Search;
+                searchTimer = searchDuration;
                 return;
             }
 
@@ -149,7 +147,6 @@ namespace DeadCircuit.AI
                                         return;
                                     }
                                 }
-
                                 nextAttack = Time.time + attackCooldown;
                                 player.DealDamageServerRpc(damage);
                             }
@@ -181,12 +178,10 @@ namespace DeadCircuit.AI
             DeadCircuitPlayer best = null;
             float bestDistance = visionRadius;
             Vector3 eye = transform.position + Vector3.up * eyeHeight;
-
             foreach (DeadCircuitPlayer player in FindObjectsByType<DeadCircuitPlayer>(FindObjectsSortMode.None))
             {
                 if (player == null || player.Downed.Value) continue;
-                Vector3 targetPoint = player.transform.position + Vector3.up * 0.9f;
-                Vector3 direction = targetPoint - eye;
+                Vector3 direction = (player.transform.position + Vector3.up * 0.9f) - eye;
                 float distance = direction.magnitude;
                 if (distance > bestDistance) continue;
                 if (Vector3.Angle(transform.forward, direction) > fieldOfView * 0.5f) continue;
@@ -234,9 +229,31 @@ namespace DeadCircuit.AI
         }
 
         [Server]
-        public void StunAndKnockback(Vector3 fromPosition, int damageAmount, float duration)
+        public void StunAndKnockback(Vector3 fromPosition, int damageAmount, float duration) => StunAndKnockback(fromPosition, damageAmount, duration, 4f);
+
+        [Server]
+        public void ApplyPhysicsKnockback(Vector3 direction, float force)
         {
-            StunAndKnockback(fromPosition, damageAmount, duration, 4f);
+            direction.y = Mathf.Clamp(direction.y + 0.35f, 0f, 1.5f);
+            direction.Normalize();
+            transform.position += direction * Mathf.Min(3f, force * 0.18f);
+            if (force >= 2.2f)
+            {
+                state = BrainState.Ragdolled;
+                stunnedUntil = Time.time + Mathf.Lerp(0.9f, 2.4f, Mathf.InverseLerp(2.2f, 3.5f, force));
+                Invoke(nameof(RecoverFromRagdoll), stunnedUntil - Time.time);
+            }
+            else
+            {
+                state = BrainState.Stunned;
+                stunnedUntil = Time.time + 0.65f;
+            }
+        }
+
+        [Server]
+        void RecoverFromRagdoll()
+        {
+            if (state == BrainState.Ragdolled) state = BrainState.Search;
         }
     }
 }
