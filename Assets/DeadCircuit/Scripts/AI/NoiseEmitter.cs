@@ -22,14 +22,23 @@ namespace DeadCircuit.AI
         AudioClip microphoneClip;
         string microphoneDevice;
 
-        void Start()
+        public override void OnStartClient()
         {
+            base.OnStartClient();
             lastPosition = transform.position;
-            if (IsOwner && Microphone.devices.Length > 0)
-            {
-                microphoneDevice = Microphone.devices[0];
-                microphoneClip = Microphone.Start(microphoneDevice, true, 1, 16000);
-            }
+            if (!IsOwner || Microphone.devices.Length == 0) return;
+
+            microphoneDevice = Microphone.devices[0];
+            microphoneClip = Microphone.Start(microphoneDevice, true, 1, 16000);
+        }
+
+        public override void OnStopClient()
+        {
+            if (IsOwner && !string.IsNullOrEmpty(microphoneDevice) && Microphone.IsRecording(microphoneDevice))
+                Microphone.End(microphoneDevice);
+            microphoneClip = null;
+            microphoneDevice = null;
+            base.OnStopClient();
         }
 
         void Update()
@@ -48,26 +57,24 @@ namespace DeadCircuit.AI
                 EmitNoiseServerRpc(Mathf.Lerp(0.22f, 0.52f, speed01), NoiseType.Footstep);
             }
 
-            if (Time.time >= nextVoicePoll && microphoneClip != null)
-            {
-                nextVoicePoll = Time.time + voicePollInterval;
-                int sampleRate = microphoneClip.frequency;
-                int micPos = Microphone.GetPosition(microphoneDevice);
-                if (micPos < 0) return;
-                int sampleCount = Mathf.Min(256, micPos);
-                if (sampleCount <= 0) return;
-                float[] samples = new float[sampleCount];
-                microphoneClip.GetData(samples, micPos - sampleCount);
-                float sum = 0f;
-                for (int i = 0; i < samples.Length; i++) sum += samples[i] * samples[i];
-                float rms = Mathf.Sqrt(sum / Mathf.Max(1, samples.Length));
-                if (rms >= voiceThreshold && Time.time >= nextVoiceNoise)
-                {
-                    nextVoiceNoise = Time.time + voiceCooldown;
-                    float loudness = Mathf.Clamp01((rms - voiceThreshold) * voiceLoudnessMultiplier);
-                    EmitNoiseServerRpc(Mathf.Clamp(loudness, 0.1f, 0.8f), NoiseType.Voice);
-                }
-            }
+            if (Time.time < nextVoicePoll || microphoneClip == null) return;
+            nextVoicePoll = Time.time + voicePollInterval;
+
+            int micPos = Microphone.GetPosition(microphoneDevice);
+            if (micPos < 0) return;
+            int sampleCount = Mathf.Min(256, micPos);
+            if (sampleCount <= 0) return;
+
+            float[] samples = new float[sampleCount];
+            microphoneClip.GetData(samples, micPos - sampleCount);
+            float sum = 0f;
+            for (int i = 0; i < samples.Length; i++) sum += samples[i] * samples[i];
+            float rms = Mathf.Sqrt(sum / Mathf.Max(1, samples.Length));
+            if (rms < voiceThreshold || Time.time < nextVoiceNoise) return;
+
+            nextVoiceNoise = Time.time + voiceCooldown;
+            float loudness = Mathf.Clamp01((rms - voiceThreshold) * voiceLoudnessMultiplier);
+            EmitNoiseServerRpc(Mathf.Clamp(loudness, 0.1f, 0.8f), NoiseType.Voice);
         }
 
         [ServerRpc]
