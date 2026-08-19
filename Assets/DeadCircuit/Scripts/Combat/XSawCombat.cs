@@ -14,8 +14,8 @@ namespace DeadCircuit.Combat
         [SerializeField] float warningTime = 0.8f;
         [SerializeField] float reactionWindow = 0.32f;
         [SerializeField] float attackCooldown = 0.65f;
-        [SerializeField] int normalDamage = 28;
-        [SerializeField] int executionDamage = 100;
+        [SerializeField] int normalDamage = 36;
+        [SerializeField] int executionDamage = 115;
         [SerializeField] float clashRange = 2.25f;
         [SerializeField] LayerMask hittableLayers = ~0;
 
