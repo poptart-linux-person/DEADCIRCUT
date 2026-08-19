@@ -76,6 +76,17 @@ namespace DeadCircuit.Networking
         }
 
         [ServerRpc]
+        public void DodgeGrabServerRpc()
+        {
+            if (!IsOwner || Downed.Value || Ragdolled.Value) return;
+            foreach (DynamicGrabQTE qte in FindObjectsByType<DynamicGrabQTE>(FindObjectsSortMode.None))
+            {
+                if (qte != null && qte.IsWarning)
+                    qte.ResolveDodge(this);
+            }
+        }
+
+        [ServerRpc]
         public void ReviveServerRpc(DeadCircuitPlayer target)
         {
             if (target == null || !target.Downed.Value || target.Revives.Value <= 0) return;
