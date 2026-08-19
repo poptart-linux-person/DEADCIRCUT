@@ -220,17 +220,23 @@ namespace DeadCircuit.AI
         }
 
         [Server]
-        public void StunAndKnockback(Vector3 fromPosition, int damageAmount, float duration)
+        public void StunAndKnockback(Vector3 fromPosition, int damageAmount, float duration, float force)
         {
             target = null;
             state = BrainState.Stunned;
             stunnedUntil = Time.time + Mathf.Max(0.2f, duration);
-            Vector3 away = (transform.position - fromPosition);
+            Vector3 away = transform.position - fromPosition;
             away.y = 0f;
             if (away.sqrMagnitude < 0.01f) away = -transform.forward;
             away.Normalize();
-            transform.position += away * Mathf.Min(1.5f, 0.75f + damageAmount * 0.02f);
+            transform.position += away * Mathf.Min(2.5f, Mathf.Max(0.5f, force * 0.2f));
             transform.rotation = Quaternion.LookRotation(-away, Vector3.up);
+        }
+
+        [Server]
+        public void StunAndKnockback(Vector3 fromPosition, int damageAmount, float duration)
+        {
+            StunAndKnockback(fromPosition, damageAmount, duration, 4f);
         }
     }
 }
