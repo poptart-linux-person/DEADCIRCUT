@@ -1,6 +1,7 @@
 using FishNet.Object;
 using UnityEngine;
 using DeadCircuit.Networking;
+using DeadCircuit.Combat;
 
 namespace DeadCircuit.AI
 {
@@ -31,9 +32,7 @@ namespace DeadCircuit.AI
         [SerializeField] float attackCooldown = 0.85f;
         [SerializeField] int damage = 35;
         [SerializeField] int executionHealthThreshold = 18;
-        [SerializeField] float executionDuration = 0.75f;
-        [SerializeField] float executionThrowUp = 3.5f;
-        [SerializeField] float executionThrowForward = 8.5f;
+        [SerializeField] DynamicGrabQTE grabQTE;
 
         BrainState state = BrainState.Dormant;
         Transform target;
@@ -43,9 +42,7 @@ namespace DeadCircuit.AI
         float nextThink;
         float nextAttack;
         float targetVisibleUntil;
-        float executionTimer;
         bool hasHeardSomething;
-        DeadCircuitPlayer executionTarget;
 
         public override void OnStartServer()
         {
@@ -65,19 +62,11 @@ namespace DeadCircuit.AI
         void Update()
         {
             if (!IsServerStarted) return;
-
-            if (state == BrainState.Executing)
-            {
-                UpdateExecution();
-                return;
-            }
-
             if (Time.time >= nextThink)
             {
                 nextThink = Time.time + 0.12f;
                 Think();
             }
-
             MoveBrain();
         }
 
@@ -145,11 +134,16 @@ namespace DeadCircuit.AI
                             var player = target.GetComponent<DeadCircuitPlayer>();
                             if (player != null)
                             {
-                                if (player.Health.Value <= executionHealthThreshold)
+                                if (grabQTE != null && player.Health.Value <= executionHealthThreshold)
                                 {
-                                    BeginExecution(player);
-                                    return;
+                                    float intensity = 1f - Mathf.Clamp01(player.Health.Value / (float)Mathf.Max(1, executionHealthThreshold));
+                                    if (grabQTE.TryStart(player, intensity))
+                                    {
+                                        nextAttack = Time.time + 2f;
+                                        return;
+                                    }
                                 }
+
                                 nextAttack = Time.time + attackCooldown;
                                 player.DealDamageServerRpc(damage);
                             }
@@ -178,37 +172,6 @@ namespace DeadCircuit.AI
         }
 
         [Server]
-        void BeginExecution(DeadCircuitPlayer player)
-        {
-            if (player == null || player.Downed.Value) return;
-            executionTarget = player;
-            state = BrainState.Executing;
-            executionTimer = executionDuration;
-            target = null;
-        }
-
-        [Server]
-        void UpdateExecution()
-        {
-            if (executionTarget == null)
-            {
-                state = BrainState.Chase;
-                return;
-            }
-
-            transform.LookAt(executionTarget.transform.position + Vector3.up * 0.9f);
-            executionTimer -= Time.deltaTime;
-            if (executionTimer > 0f) return;
-
-            Vector3 away = (executionTarget.transform.position - transform.position).normalized;
-            Vector3 impulse = away * executionThrowForward + Vector3.up * executionThrowUp;
-            executionTarget.ExecuteAndThrowServer(impulse, executionTarget.transform.position + Vector3.up * 0.8f);
-            executionTarget = null;
-            state = BrainState.Chase;
-            nextAttack = Time.time + 1.25f;
-        }
-
-        [Server]
         DeadCircuitPlayer FindVisiblePlayer()
         {
             DeadCircuitPlayer best = null;
@@ -218,18 +181,13 @@ namespace DeadCircuit.AI
             foreach (DeadCircuitPlayer player in FindObjectsByType<DeadCircuitPlayer>(FindObjectsSortMode.None))
             {
                 if (player == null || player.Downed.Value) continue;
-
                 Vector3 targetPoint = player.transform.position + Vector3.up * 0.9f;
                 Vector3 direction = targetPoint - eye;
                 float distance = direction.magnitude;
                 if (distance > bestDistance) continue;
-
-                float angle = Vector3.Angle(transform.forward, direction);
-                if (angle > fieldOfView * 0.5f) continue;
-
+                if (Vector3.Angle(transform.forward, direction) > fieldOfView * 0.5f) continue;
                 if (!Physics.Raycast(eye, direction.normalized, out RaycastHit hit, distance, sightMask)) continue;
                 if (hit.transform != player.transform && !hit.transform.IsChildOf(player.transform)) continue;
-
                 best = player;
                 bestDistance = distance;
             }
@@ -243,7 +201,6 @@ namespace DeadCircuit.AI
             float distance = Vector3.Distance(transform.position, position);
             float effectiveRadius = hearingRadius * Mathf.Lerp(0.5f, 1.35f, Mathf.Clamp01(loudness));
             if (distance > effectiveRadius) return;
-
             float precision = investigationAccuracy * Mathf.Lerp(1.5f, 0.45f, Mathf.Clamp01(loudness));
             Vector2 offset = Random.insideUnitCircle * precision;
             investigatePoint = position + new Vector3(offset.x, 0f, offset.y);
