@@ -16,6 +16,10 @@ namespace DeadCircuit.AI
         [SerializeField] LayerMask sightMask = ~0;
         [SerializeField] float visibleTargetHold = 0.65f;
 
+        [Header("Light Detection")]
+        [SerializeField] float lightAwarenessRadius = 20f;
+        [SerializeField] float lightInvestigationBias = 0.75f;
+
         [Header("Hearing")]
         [SerializeField] float hearingRadius = 18f;
         [SerializeField] float investigationAccuracy = 2.5f;
@@ -68,7 +72,11 @@ namespace DeadCircuit.AI
                 if (Time.time >= stunnedUntil) state = BrainState.Chase;
                 return;
             }
-            if (state == BrainState.Ragdolled) return;
+            if (state == BrainState.Ragdolled)
+            {
+                if (Time.time >= stunnedUntil) RecoverFromRagdoll();
+                return;
+            }
             if (Time.time >= nextThink)
             {
                 nextThink = Time.time + 0.12f;
@@ -97,6 +105,17 @@ namespace DeadCircuit.AI
                 investigatePoint = lastKnownPosition;
                 searchTimer = searchDuration;
                 return;
+            }
+
+            if (LightLureSystem.TryGetBestSignal(transform.position, out LightSignal light))
+            {
+                float distance = Vector3.Distance(transform.position, light.Position);
+                if (distance <= lightAwarenessRadius && light.Intensity * lightInvestigationBias > 0.1f)
+                {
+                    investigatePoint = light.Position;
+                    state = BrainState.Investigate;
+                    hasHeardSomething = true;
+                }
             }
 
             if (state == BrainState.Investigate && Vector3.Distance(transform.position, investigatePoint) <= 0.8f)
@@ -209,10 +228,7 @@ namespace DeadCircuit.AI
         }
 
         [Server]
-        public void HearNoise(Vector3 position)
-        {
-            HearNoise(position, 0.5f, NoiseType.Impact);
-        }
+        public void HearNoise(Vector3 position) => HearNoise(position, 0.5f, NoiseType.Impact);
 
         [Server]
         public void StunAndKnockback(Vector3 fromPosition, int damageAmount, float duration, float force)
@@ -241,7 +257,6 @@ namespace DeadCircuit.AI
             {
                 state = BrainState.Ragdolled;
                 stunnedUntil = Time.time + Mathf.Lerp(0.9f, 2.4f, Mathf.InverseLerp(2.2f, 3.5f, force));
-                Invoke(nameof(RecoverFromRagdoll), stunnedUntil - Time.time);
             }
             else
             {
@@ -251,9 +266,6 @@ namespace DeadCircuit.AI
         }
 
         [Server]
-        void RecoverFromRagdoll()
-        {
-            if (state == BrainState.Ragdolled) state = BrainState.Search;
-        }
+        void RecoverFromRagdoll() => state = BrainState.Search;
     }
 }
