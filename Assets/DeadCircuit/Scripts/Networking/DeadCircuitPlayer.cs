@@ -10,6 +10,7 @@ namespace DeadCircuit.Networking
         public readonly SyncVar<int> Health = new(120);
         public readonly SyncVar<bool> Downed = new(false);
         public readonly SyncVar<int> Revives = new(1);
+        public readonly SyncVar<bool> Ragdolled = new(false);
 
         [SerializeField] CharacterController characterController;
         [SerializeField] float reviveDuration = 3f;
@@ -26,12 +27,13 @@ namespace DeadCircuit.Networking
             Health.Value = 120;
             Downed.Value = false;
             Revives.Value = 1;
+            Ragdolled.Value = false;
         }
 
         [ServerRpc]
         public void DealDamageServerRpc(int amount)
         {
-            if (Downed.Value) return;
+            if (Downed.Value || Ragdolled.Value) return;
             int incoming = Mathf.Abs(amount);
             int reduced = Mathf.Max(1, Mathf.RoundToInt(incoming * (1f - damageReduction)));
             Health.Value = Mathf.Max(0, Health.Value - reduced);
@@ -43,6 +45,7 @@ namespace DeadCircuit.Networking
         {
             if (Downed.Value) return;
             Downed.Value = true;
+            Ragdolled.Value = true;
             if (deathRagdoll != null)
                 deathRagdoll.EnableRagdollObserversRpc(Vector3.zero, transform.position);
         }
@@ -52,9 +55,24 @@ namespace DeadCircuit.Networking
         {
             if (Downed.Value) return;
             Downed.Value = true;
+            Ragdolled.Value = true;
             Health.Value = 0;
             if (deathRagdoll != null)
                 deathRagdoll.EnableRagdollObserversRpc(impulse, hitPoint);
+        }
+
+        [Server]
+        public void EnterRagdollServer(Vector3 direction, float forwardForce, float upForce)
+        {
+            if (Downed.Value) return;
+            Downed.Value = true;
+            Ragdolled.Value = true;
+            Health.Value = Mathf.Max(0, Health.Value - 24);
+            if (deathRagdoll != null)
+            {
+                Vector3 impulse = direction.normalized * forwardForce + Vector3.up * upForce;
+                deathRagdoll.EnableRagdollObserversRpc(impulse, transform.position);
+            }
         }
 
         [ServerRpc]
@@ -69,6 +87,7 @@ namespace DeadCircuit.Networking
             Revives.Value--;
             Health.Value = 42;
             Downed.Value = false;
+            Ragdolled.Value = false;
             reviveTimer = 0f;
         }
 
