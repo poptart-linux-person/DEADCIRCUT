@@ -1,6 +1,5 @@
 using FishNet.Object;
 using UnityEngine;
-using DeadCircuit.Networking;
 
 namespace DeadCircuit.Combat
 {
@@ -11,9 +10,9 @@ namespace DeadCircuit.Combat
         [SerializeField] float maxChargeDuration = 1.35f;
         [SerializeField] float hitRange = 1.8f;
         [SerializeField] float damageMin = 18f;
-        [SerializeField] float damageMax = 58f;
+        [SerializeField] float damageMax = 65f;
         [SerializeField] float knockbackMin = 2.5f;
-        [SerializeField] float knockbackMax = 8f;
+        [SerializeField] float knockbackMax = 9f;
         [SerializeField] float cooldown = 1.1f;
         [SerializeField] LayerMask hittableLayers = ~0;
 
@@ -27,11 +26,9 @@ namespace DeadCircuit.Combat
 
         void Update()
         {
-            if (!IsOwner) return;
-            if (!charging) return;
+            if (!IsOwner || !charging) return;
             chargeTimer += Time.deltaTime;
-            if (chargeTimer >= maxChargeDuration)
-                ReleaseCharge();
+            if (chargeTimer >= maxChargeDuration) ReleaseCharge();
         }
 
         public void BeginCharge()
@@ -47,25 +44,23 @@ namespace DeadCircuit.Combat
             if (!IsOwner || !charging) return;
             charging = false;
             nextCharge = Time.time + cooldown;
-
             float speed = Vector3.Distance(transform.position, startPosition) / Mathf.Max(0.05f, chargeTimer);
             float intensity = Mathf.InverseLerp(chargeMinSpeed, chargeMaxSpeed, speed);
-            RequestChargeServerRpc(Mathf.Clamp01(intensity));
+            RequestChargeServerRpc(Mathf.Clamp01(intensity), transform.forward);
         }
 
         [ServerRpc]
-        void RequestChargeServerRpc(float intensity)
+        void RequestChargeServerRpc(float intensity, Vector3 forward)
         {
             if (intensity <= 0f) return;
             Vector3 origin = transform.position + Vector3.up * 0.9f;
-            if (!Physics.SphereCast(origin, 0.45f, transform.forward, out RaycastHit hit, hitRange, hittableLayers)) return;
-
+            if (!Physics.SphereCast(origin, 0.45f, forward.normalized, out RaycastHit hit, hitRange, hittableLayers)) return;
             var monster = hit.collider.GetComponentInParent<DeadCircuit.AI.DeadCircuitMonster>();
             if (monster == null) return;
-
             int damage = Mathf.RoundToInt(Mathf.Lerp(damageMin, damageMax, intensity));
             float force = Mathf.Lerp(knockbackMin, knockbackMax, intensity);
             monster.StunAndKnockback(transform.position, damage, 1.1f + intensity * 1.4f, force);
+            if (intensity > 0.8f) monster.ApplyPhysicsKnockback(forward.normalized, force);
         }
     }
 }
