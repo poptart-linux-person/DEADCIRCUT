@@ -42,6 +42,7 @@ namespace DeadCircuit.AI
         float nextThink;
         float nextAttack;
         float targetVisibleUntil;
+        float stunnedUntil;
         bool hasHeardSomething;
 
         public override void OnStartServer()
@@ -62,6 +63,11 @@ namespace DeadCircuit.AI
         void Update()
         {
             if (!IsServerStarted) return;
+            if (state == BrainState.Stunned)
+            {
+                if (Time.time >= stunnedUntil) state = BrainState.Chase;
+                return;
+            }
             if (Time.time >= nextThink)
             {
                 nextThink = Time.time + 0.12f;
@@ -150,12 +156,10 @@ namespace DeadCircuit.AI
                         }
                     }
                     break;
-
                 case BrainState.Investigate:
                     destination = investigatePoint;
                     speed = investigateSpeed;
                     break;
-
                 case BrainState.Search:
                     destination = investigatePoint;
                     speed = investigateSpeed * 0.8f;
@@ -191,7 +195,6 @@ namespace DeadCircuit.AI
                 best = player;
                 bestDistance = distance;
             }
-
             return best;
         }
 
@@ -214,6 +217,20 @@ namespace DeadCircuit.AI
         public void HearNoise(Vector3 position)
         {
             HearNoise(position, 0.5f, NoiseType.Impact);
+        }
+
+        [Server]
+        public void StunAndKnockback(Vector3 fromPosition, int damageAmount, float duration)
+        {
+            target = null;
+            state = BrainState.Stunned;
+            stunnedUntil = Time.time + Mathf.Max(0.2f, duration);
+            Vector3 away = (transform.position - fromPosition);
+            away.y = 0f;
+            if (away.sqrMagnitude < 0.01f) away = -transform.forward;
+            away.Normalize();
+            transform.position += away * Mathf.Min(1.5f, 0.75f + damageAmount * 0.02f);
+            transform.rotation = Quaternion.LookRotation(-away, Vector3.up);
         }
     }
 }
