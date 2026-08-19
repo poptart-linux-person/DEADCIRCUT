@@ -1,6 +1,7 @@
 using FishNet.Object;
 using FishNet.Object.Synchronizing;
 using UnityEngine;
+using DeadCircuit.Combat;
 
 namespace DeadCircuit.Networking
 {
@@ -14,6 +15,7 @@ namespace DeadCircuit.Networking
         [SerializeField] float reviveDuration = 3f;
         [SerializeField, Range(0f, 0.75f)] float damageReduction = 0.22f;
         [SerializeField, Range(0.5f, 1.25f)] float combatPowerScale = 0.90f;
+        [SerializeField] DeathRagdoll deathRagdoll;
         float reviveTimer;
 
         public float CombatPowerScale => combatPowerScale;
@@ -33,7 +35,26 @@ namespace DeadCircuit.Networking
             int incoming = Mathf.Abs(amount);
             int reduced = Mathf.Max(1, Mathf.RoundToInt(incoming * (1f - damageReduction)));
             Health.Value = Mathf.Max(0, Health.Value - reduced);
-            if (Health.Value == 0) Downed.Value = true;
+            if (Health.Value == 0) DieServer();
+        }
+
+        [Server]
+        void DieServer()
+        {
+            if (Downed.Value) return;
+            Downed.Value = true;
+            if (deathRagdoll != null)
+                deathRagdoll.EnableRagdollObserversRpc(Vector3.zero, transform.position);
+        }
+
+        [Server]
+        public void ExecuteAndThrowServer(Vector3 impulse, Vector3 hitPoint)
+        {
+            if (Downed.Value) return;
+            Downed.Value = true;
+            Health.Value = 0;
+            if (deathRagdoll != null)
+                deathRagdoll.EnableRagdollObserversRpc(impulse, hitPoint);
         }
 
         [ServerRpc]
