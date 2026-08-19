@@ -37,6 +37,7 @@ namespace DeadCircuit.AI
         [SerializeField] int damage = 35;
         [SerializeField] int executionHealthThreshold = 18;
         [SerializeField] DynamicGrabQTE grabQTE;
+        [SerializeField] MonsterCombatAbilities combatAbilities;
 
         BrainState state = BrainState.Dormant;
         Transform target;
@@ -96,6 +97,14 @@ namespace DeadCircuit.AI
                 targetVisibleUntil = Time.time + visibleTargetHold;
                 state = BrainState.Chase;
                 hasHeardSomething = false;
+                float distance = Vector3.Distance(transform.position, target.position);
+                if (combatAbilities != null && distance < 4f)
+                {
+                    float threat = Mathf.Clamp01(1f - distance / 4f);
+                    if (seen.Health.Value > 75 && Random.value < 0.18f) combatAbilities.TryBlock(threat);
+                    else if (Random.value < 0.12f) combatAbilities.TryParry(Mathf.Max(threat, 0.7f));
+                    else if (distance > attackRange && Random.value < 0.1f) combatAbilities.TryDropkick(target);
+                }
                 return;
             }
 
@@ -263,6 +272,13 @@ namespace DeadCircuit.AI
                 state = BrainState.Stunned;
                 stunnedUntil = Time.time + 0.65f;
             }
+        }
+
+        [Server]
+        public bool TryCounterIncoming(Transform attacker)
+        {
+            if (combatAbilities == null) return false;
+            return combatAbilities.TryParryIncoming(attacker);
         }
 
         [Server]
